@@ -1,0 +1,20 @@
+[package]
+name = "test_simdeez"
+version = "0.1.0"
+authors = ["Ching-Chuan Chen <zw12356@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+time = ""
+packed_simd = ""
+rayon = ""
+cblas = ""
+blas-src = { version = "*", features = ["intel-mkl"] }
+intel-mkl-src = "0.5.0"
+intel-mkl-sys = "0.1.0"
+intel-mkl-tool = "0.1.0"
+arrayref = ""
+
+
