@@ -8,6 +8,9 @@ edition = "2018"
 
 [dependencies]
 time = ""
+rand = ""
+rand_distr = ""
+arrayref = ""
 packed_simd = ""
 rayon = ""
 cblas = ""
@@ -15,6 +18,3 @@ blas-src = { version = "*", features = ["intel-mkl"] }
 intel-mkl-src = "0.5.0"
 intel-mkl-sys = "0.1.0"
 intel-mkl-tool = "0.1.0"
-arrayref = ""
-
-
