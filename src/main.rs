@@ -59,7 +59,7 @@ fn main() {
         record_time: Instant::now(),
     };
     let normal = Normal::new(0f64, 3f64).unwrap();
-    const N: usize = 300_000_000;
+    const N: usize = 2_100_000_000;
     println!("The size of vector is {:?}", N);
     let n: i32 = N as i32;
 
@@ -123,9 +123,12 @@ fn main() {
         });
     timer.toc("The time of rayon + SIMD vdAdd: ");
     println!("Result: {:?}, {:?}, {:?}", r[0], r[1], r[2]);
+    let x = 0; 
+    let y = 1;
+    let r = 2;
 
     // test on dgemv
-    let (m, k) = (2000, 50000);
+    let (m, k) = (6000, 200000);
     let alpha: f64 = 2.0;
     let beta: f64 = 1.0;
     let mut a: Vec<f64> = vec![0f64; m*k];

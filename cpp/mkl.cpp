@@ -14,7 +14,7 @@ int main() {
     VSLStreamStatePtr stream;
     vslNewStream(&stream, VSL_BRNG_MCG31, 1337);
 
-    n = 300000000;
+    n = 2100000000;
     x = (double*)mkl_malloc(n*sizeof(double),64);
     y = (double*)mkl_malloc(n*sizeof(double),64);
 
@@ -37,17 +37,21 @@ int main() {
     end = std::chrono::system_clock::now(); 
     elapsed_seconds = end - start; 
     std::cout<< "res: " << std::setprecision(12) << r[0] << ", " << r[1] << ", " << r[2] << std::endl;
-    std::cout<< "Time of cblas_ddot: " << elapsed_seconds.count() * 1000. << " milliseconds"  << std::endl;
+    std::cout<< "Time of vdAdd: " << elapsed_seconds.count() * 1000. << " milliseconds"  << std::endl;
+    mkl_free(x);
+    mkl_free(y);
+    mkl_free(r);
 
-    int m, k;    
+    int m, k, mk;
     double *a, *b, *c, alpha, beta;
 
-    m = 2000;
-    k = 50000;
-    a = (double*)mkl_malloc(m*k*sizeof(double),64);
+    m = 6000;
+    k = 200000;
+    mk = m * k;
+    a = (double*)mkl_malloc(mk*sizeof(double),64);
     b = (double*)mkl_malloc(k*sizeof(double),64);
 
-    vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER,stream,m*k,a,0.,3.);
+    vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER,stream,mk,a,0.,3.);
     vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER,stream,k,b,0.,3.);
 
     c = (double*)mkl_malloc(m*sizeof(double),64);
@@ -63,8 +67,8 @@ int main() {
     std::cout<< "res: " << std::setprecision(12) << c[0] << ", " << c[1] << ", " << c[2] << std::endl;
     std::cout<< "Time of cblas_dgemv: " << elapsed_seconds.count() * 1000. << " milliseconds"  << std::endl;
 
-    mkl_free(x);
-    mkl_free(y);
-    mkl_free(r);
+    mkl_free(a);
+    mkl_free(b);
+    mkl_free(c);
     return 0;
 }

@@ -11,7 +11,7 @@
 
 ### vector-vector operations
 
-|                        300 millions double. (about 2.235GB)                   |||||
+|                        300 millions double. (about 4.47GB)                    |||||
 |:---------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
 |                                   **Dot Product**                             |||||
 | Programs                    | First Time  | Second Time | Third Time  | Avg. Time |
@@ -27,7 +27,7 @@
 | Rust ( SIMD with f64x8)     |  430.687    |   430.8837  |   425.9078  |  429.1595 |
 
 
-|                        2.1 billions double. (about 15.646GB)                  |||||
+|                        2.1 billions double. (about 46.93866 GB)               |||||
 |:---------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
 |                                   **Dot Product**                             |||||
 | Programs                    | First Time  | Second Time | Third Time  | Avg. Time |
@@ -44,10 +44,18 @@
 
 ### matrix-vector operations
 
-|                          (2000 x 50000) vs (50000 x 1)                     |||||
+|                (2000 x 50000) vs (50000 x 1)  (about 0.745MB)                   |||||
 |:-----------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
 |                                **Multiplication**                         |||||
 | Programs                      | First Time  | Second Time | Third Time  | Avg. Time |
 | Intel MKL cblas_dgemv (C++)   |   35.804    |    35.9142  |   36.1763   |   35.9648 |
 | Intel MKL cblas_dgemv (Rust)  |   39.133    |    39.255   |   39.157    |   39.182  |
 | Rust in Rayon                 |   12.587    |    12.907   |   12.651    |   12.713  |
+
+|                (6000 x 200000) vs (200000 x 1)  (about 8.942GB)                   |||||
+|:-----------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
+|                                **Multiplication**                         |||||
+| Programs                      | First Time  | Second Time | Third Time  | Avg. Time |
+| Intel MKL cblas_dgemv (C++)   |  434.1534   |   426.4765  |  436.8868   |  432.5055 |
+| Intel MKL cblas_dgemv (Rust)  |  464.378    |   420.354   |  427.682    |  437.4713 |
+| Rust in Rayon                 |  144.228    |   143.084   |  145.651    |  144.321  |
