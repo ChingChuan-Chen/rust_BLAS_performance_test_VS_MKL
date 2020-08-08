@@ -20,7 +20,7 @@ blas-src = { version = "*", features = ["intel-mkl"] }
 version = "^0.6.0"
 default-features = false
 path = "../intel-mkl-src/intel-mkl-src"
-features = ["mkl-static-lp64-tbb"]
+features = ["mkl-static-lp64-iomp"]
 
 [dependencies.intel-mkl-tool]
 path = "../intel-mkl-src/intel-mkl-tool"
