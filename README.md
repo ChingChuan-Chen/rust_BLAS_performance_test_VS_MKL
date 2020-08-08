@@ -18,8 +18,11 @@ println!("cargo:rustc-link-lib=mkl_core");
 ```
 
 ## Performance Results (in milliseconds):
- - Run command: `cargo +nightly run --release`
+ - Run command: `RUSTFLAGS="-C target-feature=+avx2" cargo +nightly run --release`
  - My machine is AMD Ryzen Threadripper 1950X 16-Core @ 4.00GHz with 128 GB Ram.
+
+
+### vector-vector operations
 
 |                        300 millions double. (about 2.235GB)                |||||
 |:------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
@@ -47,3 +50,12 @@ println!("cargo:rustc-link-lib=mkl_core");
 | Intel MKL cblas_ddot     |  3114.2552  |  3080.1915  |  3082.665   | 3092.3706 |
 | Rust (SIMD with f64x4)   |  3018.102   |  3023.3982  |  3017.301   | 3019.6004 |
 | Rust ( SIMD with f64x8)  |  3000.0463  |  2994.6608  |  3009.3949  | 3001.3673 |
+
+### matrix-vector operations
+
+|                          (2000 x 50000) vs (50000 x 1)                     |||||
+|:------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
+|                                **Multiplication**                         |||||
+| Programs                 | First Time  | Second Time | Third Time  | Avg. Time |
+| Intel MKL cblas_dgemv    |   39.133    |    39.255   |   39.157    |   39.182  |
+| Rust in Rayon            |   12.587    |    12.907   |   12.651    |   12.713  |

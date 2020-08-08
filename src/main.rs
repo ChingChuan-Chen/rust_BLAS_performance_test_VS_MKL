@@ -15,7 +15,7 @@ extern crate packed_simd;
 use packed_simd::f64x8;
 extern crate cblas;
 extern crate intel_mkl_src;
-use cblas::ddot;
+use cblas::{ddot, Layout, Transpose, dgemv};
 
 extern "C" {
     pub fn vdAdd(n: ::std::os::raw::c_int, a: *const f64, b: *const f64, r: *mut f64);
@@ -53,11 +53,13 @@ impl Timer {
 }
 
 fn main() {
+    // rayon::ThreadPoolBuilder::new().num_threads(8).build_global().unwrap();
+
     let mut timer = Timer {
         record_time: Instant::now(),
     };
     let normal = Normal::new(0f64, 3f64).unwrap();
-    const N: usize = 300_000_000;
+    const N: usize = 1_000_000;
     println!("The size of vector is {:?}", N);
     let n: i32 = N as i32;
 
@@ -73,6 +75,7 @@ fn main() {
     println!("x: {:?}, {:?}", x[0], x[1000]);
     println!("y: {:?}, {:?}", y[0], y[1000]);
 
+    // test on ddot
     timer.tic();
     let res = unsafe { ddot(n, &x, 1, &y, 1) };
     timer.toc("The time of Intel MKL cblas_ddot: ");
@@ -93,6 +96,7 @@ fn main() {
     timer.toc("The time of rayon + SIMD ddot: ");
     println!("Result: {:?}", res);
 
+    // test on vdAdd
     let xa = array_ref!(x, 0, N);
     let ya = array_ref!(y, 0, N);
     let mut r: Vec<f64> = vec![0f64; N];
@@ -119,4 +123,37 @@ fn main() {
         });
     timer.toc("The time of rayon + SIMD vdAdd: ");
     println!("Result: {:?}, {:?}, {:?}", r[0], r[1], r[2]);
+
+    // test on dgemv
+    let (m, k) = (2000, 50000);
+    let mut a: Vec<f64> = vec![0f64; m*k];
+    timer.tic();
+    fill_vec_with_random_dist(&mut a, &normal);
+    timer.toc(&format!("The time of generating random normal number of a ({0}x{1}): ", m, k));
+
+    let mut b: Vec<f64> = vec![0f64; k];
+    timer.tic();
+    fill_vec_with_random_dist(&mut b, &normal);
+    timer.toc(&format!("The time of generating random normal number of a ({0}x1): ", k));
+
+    let mut c: Vec<f64> = vec![2f64; k];
+    timer.tic();
+    unsafe {
+        dgemv(Layout::RowMajor, Transpose::None,
+              m as i32, k as i32, 2.0, &a, k as i32, &b, 1, 1.0, &mut c, 1);
+    }
+    timer.toc("The time of cblas_dgemv: ");
+    println!("Result: {:?}, {:?}, {:?}", c[0], c[1], c[2]);
+
+    let mut c: Vec<f64> = vec![2f64; k];
+    let alpha = 2.0;
+    let beta = 1.0;
+    timer.tic();
+    a.par_chunks(k as usize)
+     .zip(c.par_iter_mut())
+     .for_each(|(chunk, r)| {
+        *r = alpha * chunk.iter().zip(b.iter()).map(|(x, y)| x * y).sum::<f64>() + beta * *r;
+     });
+    timer.toc("The time of rayon: ");
+    println!("Result: {:?}, {:?}, {:?}", c[0], c[1], c[2]);
 }
