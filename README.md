@@ -45,8 +45,9 @@
 ### matrix-vector operations
 
 |                          (2000 x 50000) vs (50000 x 1)                     |||||
-|:------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
+|:-----------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
 |                                **Multiplication**                         |||||
-| Programs                 | First Time  | Second Time | Third Time  | Avg. Time |
-| Intel MKL cblas_dgemv    |   39.133    |    39.255   |   39.157    |   39.182  |
-| Rust in Rayon            |   12.587    |    12.907   |   12.651    |   12.713  |
+| Programs                      | First Time  | Second Time | Third Time  | Avg. Time |
+| Intel MKL cblas_dgemv (C++)   |   35.804    |    35.9142  |   36.1763   |   35.9648 |
+| Intel MKL cblas_dgemv (Rust)  |   39.133    |    39.255   |   39.157    |   39.182  |
+| Rust in Rayon                 |   12.587    |    12.907   |   12.651    |   12.713  |

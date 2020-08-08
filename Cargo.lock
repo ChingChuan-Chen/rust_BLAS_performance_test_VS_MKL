@@ -344,15 +344,15 @@ dependencies = [
 
 [[package]]
 name = "intel-mkl-src"
-version = "0.6.1"
+version = "0.6.0+mkl2020.1"
 dependencies = [
  "anyhow 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
- "intel-mkl-tool 0.2.1",
+ "intel-mkl-tool 0.2.0+mkl2020.1",
 ]
 
 [[package]]
 name = "intel-mkl-tool"
-version = "0.2.1"
+version = "0.2.0+mkl2020.1"
 dependencies = [
  "anyhow 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
  "curl 0.4.31 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -854,8 +854,8 @@ dependencies = [
  "arrayref 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "blas-src 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cblas 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "intel-mkl-src 0.6.1",
- "intel-mkl-tool 0.2.1",
+ "intel-mkl-src 0.6.0+mkl2020.1",
+ "intel-mkl-tool 0.2.0+mkl2020.1",
  "packed_simd 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand_distr 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
