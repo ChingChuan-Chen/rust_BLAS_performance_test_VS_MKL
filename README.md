@@ -46,15 +46,15 @@
 
 |                (2000 x 50000) vs (50000 x 1)  (about 0.745MB)                   |||||
 |:-----------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
-|                                **Multiplication**                         |||||
+|                                **Multiplication**                              |||||
 | Programs                      | First Time  | Second Time | Third Time  | Avg. Time |
 | Intel MKL cblas_dgemv (C++)   |   35.804    |    35.9142  |   36.1763   |   35.9648 |
 | Intel MKL cblas_dgemv (Rust)  |   39.133    |    39.255   |   39.157    |   39.182  |
 | Rust in Rayon                 |   12.587    |    12.907   |   12.651    |   12.713  |
 
-|                (6000 x 200000) vs (200000 x 1)  (about 8.942GB)                   |||||
+|                (6000 x 200000) vs (200000 x 1)  (about 8.942GB)                 |||||
 |:-----------------------------:|:-----------:|:-----------:|:-----------:|:---------:|
-|                                **Multiplication**                         |||||
+|                                **Multiplication**                              |||||
 | Programs                      | First Time  | Second Time | Third Time  | Avg. Time |
 | Intel MKL cblas_dgemv (C++)   |  434.1534   |   426.4765  |  436.8868   |  432.5055 |
 | Intel MKL cblas_dgemv (Rust)  |  464.378    |   420.354   |  427.682    |  437.4713 |
