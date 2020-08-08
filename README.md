@@ -1,21 +1,9 @@
-# Test Dot Product / Element-wise addition of two vectors in MKL and Rust
+# Test Matrix-Vector / Vector-Vector operations in MKL and Rust
 
 ## Requirements:
- - Rust Nightly Build (`rustup update && crustup install nightly`)
+ - Rust Nightly Build (`rustup update && rustup install nightly`)
  - [Intel MKL](https://software.intel.com/en-us/mkl)
    - Modify `intel-mkl-src` and `intel-mkl-tool` to use `mkl_intel_thread.lib` and `libiomp5md.lib` for the best performance.
-
-### build.rs in intel-mkl-src
-
-``` rust
-// Change the last 5 lines as following:
-println!("cargo:rustc-link-search={}", out_dir.display());
-println!("cargo:rustc-link-search={}", "PATH_TO_THE_INTEL_COMPILER_LIB");
-println!("cargo:rustc-link-lib=mkl_intel_lp64");
-println!("cargo:rustc-link-lib=libiomp5md");
-println!("cargo:rustc-link-lib=mkl_intel_thread");
-println!("cargo:rustc-link-lib=mkl_core");
-```
 
 ## Performance Results (in milliseconds):
  - Run command: `RUSTFLAGS="-C target-feature=+avx2" cargo +nightly run --release`

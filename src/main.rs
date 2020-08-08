@@ -59,7 +59,7 @@ fn main() {
         record_time: Instant::now(),
     };
     let normal = Normal::new(0f64, 3f64).unwrap();
-    const N: usize = 1_000_000;
+    const N: usize = 300_000_000;
     println!("The size of vector is {:?}", N);
     let n: i32 = N as i32;
 
@@ -126,6 +126,8 @@ fn main() {
 
     // test on dgemv
     let (m, k) = (2000, 50000);
+    let alpha: f64 = 2.0;
+    let beta: f64 = 1.0;
     let mut a: Vec<f64> = vec![0f64; m*k];
     timer.tic();
     fill_vec_with_random_dist(&mut a, &normal);
@@ -136,18 +138,16 @@ fn main() {
     fill_vec_with_random_dist(&mut b, &normal);
     timer.toc(&format!("The time of generating random normal number of a ({0}x1): ", k));
 
-    let mut c: Vec<f64> = vec![2f64; k];
+    let mut c: Vec<f64> = vec![2f64; m];
     timer.tic();
     unsafe {
         dgemv(Layout::RowMajor, Transpose::None,
-              m as i32, k as i32, 2.0, &a, k as i32, &b, 1, 1.0, &mut c, 1);
+              m as i32, k as i32, alpha, &a, k as i32, &b, 1i32, beta, &mut c, 1i32);
     }
     timer.toc("The time of cblas_dgemv: ");
     println!("Result: {:?}, {:?}, {:?}", c[0], c[1], c[2]);
 
-    let mut c: Vec<f64> = vec![2f64; k];
-    let alpha = 2.0;
-    let beta = 1.0;
+    let mut c: Vec<f64> = vec![2f64; m];
     timer.tic();
     a.par_chunks(k as usize)
      .zip(c.par_iter_mut())
