@@ -13,6 +13,7 @@ use rayon::prelude::*;
 extern crate cblas;
 extern crate intel_mkl_src;
 use cblas::{ddot, Layout, Transpose, dgemv};
+use packed_simd::f64x8;
 
 extern "C" {
     pub fn vdAdd(n: ::std::os::raw::c_int, a: *const f64, b: *const f64, r: *mut f64);
@@ -56,7 +57,7 @@ fn main() {
         record_time: Instant::now(),
     };
     let normal = Normal::new(0f64, 3f64).unwrap();
-    const N: usize = 210_000_000;
+    const N: usize = 2_100_000_000;
     println!("The size of vector is {:?}", N);
     let n: i32 = N as i32;
 
@@ -83,6 +84,16 @@ fn main() {
     timer.toc("The time of rayon ddot: ");
     println!("Result: {:?}", res);
 
+    timer.tic();
+    let res: f64 = x
+        .par_chunks(8)
+        .map(f64x8::from_slice_unaligned)
+        .zip(y.par_chunks(8).map(f64x8::from_slice_unaligned))
+        .map(|(a, b)| (a * b).sum())
+        .sum();
+    timer.toc("The time of rayon + SIMD ddot: ");
+    println!("Result: {:?}", res);
+
     // test on vdAdd
     let xa = array_ref!(x, 0, N);
     let ya = array_ref!(y, 0, N);
@@ -96,6 +107,19 @@ fn main() {
     timer.tic();
     let r: Vec<f64> = x.par_iter().zip(y.par_iter()).map(|(a, b)| a + b).collect();
     timer.toc("The time of rayon vdAdd: ");
+    println!("Result: {:?}, {:?}, {:?}", r[0], r[1], r[2]);
+
+    let mut r: Vec<f64> = vec![0f64; N];
+    timer.tic();
+    x.par_chunks(8)
+        .map(f64x8::from_slice_unaligned)
+        .zip(y.par_chunks(8).map(f64x8::from_slice_unaligned))
+        .map(|(a, b)| a + b)
+        .zip(r.par_chunks_mut(8))
+        .for_each(|(v, slice)| {
+            v.write_to_slice_unaligned(slice);
+        });
+    timer.toc("The time of rayon + SIMD vdAdd: ");
     println!("Result: {:?}, {:?}, {:?}", r[0], r[1], r[2]);
 
     // test on dgemv

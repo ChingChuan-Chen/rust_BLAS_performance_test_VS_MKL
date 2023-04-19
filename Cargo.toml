@@ -11,4 +11,5 @@ rand_distr = "*"
 arrayref = "*"
 rayon = "*"
 cblas = "*"
+packed_simd = { version = "0.3.8", package = "packed_simd" }
 intel-mkl-src = {version = "*", default-features = false, features = ["mkl-static-lp64-iomp"]}
