@@ -4,23 +4,11 @@ version = "0.1.0"
 authors = ["Ching-Chuan Chen <zw12356@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-time = ""
-rand = ""
-rand_distr = ""
-arrayref = ""
-packed_simd = ""
-rayon = ""
-cblas = ""
-blas-src = { version = "*", features = ["intel-mkl"] }
-
-[dependencies.intel-mkl-src]
-version = "^0.6.0"
-default-features = false
-path = "../intel-mkl-src/intel-mkl-src"
-features = ["mkl-static-lp64-iomp"]
-
-[dependencies.intel-mkl-tool]
-path = "../intel-mkl-src/intel-mkl-tool"
+time = "*"
+rand = "*"
+rand_distr = "*"
+arrayref = "*"
+rayon = "*"
+cblas = "*"
+intel-mkl-src = {version = "*", default-features = false, features = ["mkl-static-lp64-iomp"]}
