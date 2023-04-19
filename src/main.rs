@@ -87,6 +87,7 @@ fn main() {
     let xa = array_ref!(x, 0, N);
     let ya = array_ref!(y, 0, N);
     let mut r: Vec<f64> = vec![0f64; N];
+    let ra = array_mut_ref!(r, 0, N);
     timer.tic();
     unsafe { vdAdd(n, xa.as_ptr(), ya.as_ptr(), ra.as_mut_ptr()) };
     timer.toc("The time of Intel MKL vdAdd: ");
