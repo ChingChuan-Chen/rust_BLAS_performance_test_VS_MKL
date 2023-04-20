@@ -1,6 +1,4 @@
-use std::vec::Vec;
-extern crate time;
-use time::Instant;
+use std::time::Instant;
 #[macro_use]
 extern crate arrayref;
 extern crate rand;
@@ -12,12 +10,11 @@ extern crate rayon;
 use rayon::prelude::*;
 extern crate cblas;
 extern crate intel_mkl_src;
-use cblas::{ddot, Layout, Transpose, dgemv};
-use packed_simd::f64x8;
-
-extern "C" {
-    pub fn vdAdd(n: ::std::os::raw::c_int, a: *const f64, b: *const f64, r: *mut f64);
-}
+extern crate intel_mkl_sys;
+extern crate num_cpus;
+use cblas::{ddot, dgemv, Layout, Transpose};
+use intel_mkl_sys::vdAdd;
+use packed_simd::*;
 
 #[inline]
 fn fill_vec_with_random_dist<'a, T: Float + Send + Sync, D: Distribution<T> + Sync>(
@@ -45,15 +42,46 @@ impl Timer {
         println!(
             "{}{} milliseconds",
             info,
-            (Instant::now() - self.record_time).whole_microseconds() as f64 / 1000f64
+            (Instant::now() - self.record_time).as_micros() as f64 / 1000f64
         );
     }
 }
 
-fn main() {
-    // rayon::ThreadPoolBuilder::new().num_threads(8).build_global().unwrap();
+fn dot_product(x: &[f64], y: &[f64]) -> f64 {
+    let len = x.len();
+    assert_eq!(len, y.len());
 
-    let mut timer = Timer {
+    let mut sum = f64x4::splat(0.0);
+    let chunk_size = f64x4::lanes();
+    let num_chunks = len / chunk_size;
+
+    for i in 0..num_chunks {
+        let xi = f64x4::from_slice_unaligned(&x[i * chunk_size..]);
+        let yi = f64x4::from_slice_unaligned(&y[i * chunk_size..]);
+        sum += xi * yi;
+    }
+
+    let mut res = 0.0;
+    for i in 0..chunk_size {
+        res += sum.extract(i);
+    }
+
+    for i in num_chunks * chunk_size..len {
+        res += x[i] * y[i];
+    }
+
+    res
+}
+
+fn main() {
+    let num_threads: usize = num_cpus::get_physical();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()
+        .unwrap();
+    println!("The number of threads is {:?}", num_threads);
+
+    let mut timer: Timer = Timer {
         record_time: Instant::now(),
     };
     let normal = Normal::new(0f64, 3f64).unwrap();
@@ -75,23 +103,28 @@ fn main() {
 
     // test on ddot
     timer.tic();
-    let res = unsafe { ddot(n, &x, 1, &y, 1) };
+    let res: f64 = unsafe { ddot(n, &x, 1, &y, 1) };
     timer.toc("The time of Intel MKL cblas_ddot: ");
     println!("Result: {:?}", res);
 
     timer.tic();
     let res: f64 = x.par_iter().zip(y.par_iter()).map(|(a, b)| a * b).sum();
-    timer.toc("The time of rayon ddot: ");
+    timer.toc("The time of rayon: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
+    let res: f64 = dot_product(&x, &y);
+    timer.toc("The time of packed_simd: ");
     println!("Result: {:?}", res);
 
     timer.tic();
     let res: f64 = x
-        .par_chunks(8)
-        .map(f64x8::from_slice_unaligned)
-        .zip(y.par_chunks(8).map(f64x8::from_slice_unaligned))
+        .par_chunks(4)
+        .map(f64x4::from_slice_unaligned)
+        .zip(y.par_chunks(4).map(f64x4::from_slice_unaligned))
         .map(|(a, b)| (a * b).sum())
         .sum();
-    timer.toc("The time of rayon + SIMD ddot: ");
+    timer.toc("The time of rayon + packed_simd ddot: ");
     println!("Result: {:?}", res);
 
     // test on vdAdd
@@ -126,21 +159,39 @@ fn main() {
     let (m, k) = (6000, 200000);
     let alpha: f64 = 2.0;
     let beta: f64 = 1.0;
-    let mut a: Vec<f64> = vec![0f64; m*k];
+    let mut a: Vec<f64> = vec![0f64; m * k];
     timer.tic();
     fill_vec_with_random_dist(&mut a, &normal);
-    timer.toc(&format!("The time of generating random normal number of a ({0}x{1}): ", m, k));
+    timer.toc(&format!(
+        "The time of generating random normal number of a ({0}x{1}): ",
+        m, k
+    ));
 
     let mut b: Vec<f64> = vec![0f64; k];
     timer.tic();
     fill_vec_with_random_dist(&mut b, &normal);
-    timer.toc(&format!("The time of generating random normal number of a ({0}x1): ", k));
+    timer.toc(&format!(
+        "The time of generating random normal number of a ({0}x1): ",
+        k
+    ));
 
     let mut c: Vec<f64> = vec![2f64; m];
     timer.tic();
     unsafe {
-        dgemv(Layout::RowMajor, Transpose::None,
-              m as i32, k as i32, alpha, &a, k as i32, &b, 1i32, beta, &mut c, 1i32);
+        dgemv(
+            Layout::RowMajor,
+            Transpose::None,
+            m as i32,
+            k as i32,
+            alpha,
+            &a,
+            k as i32,
+            &b,
+            1i32,
+            beta,
+            &mut c,
+            1i32,
+        );
     }
     timer.toc("The time of cblas_dgemv: ");
     println!("Result: {:?}, {:?}, {:?}", c[0], c[1], c[2]);
@@ -148,10 +199,10 @@ fn main() {
     let mut c: Vec<f64> = vec![2f64; m];
     timer.tic();
     a.par_chunks(k as usize)
-     .zip(c.par_iter_mut())
-     .for_each(|(chunk, r)| {
-        *r = alpha * chunk.iter().zip(b.iter()).map(|(x, y)| x * y).sum::<f64>() + beta * *r;
-     });
+        .zip(c.par_iter_mut())
+        .for_each(|(chunk, r)| {
+            *r = alpha * chunk.iter().zip(b.iter()).map(|(x, y)| x * y).sum::<f64>() + beta * *r;
+        });
     timer.toc("The time of rayon: ");
     println!("Result: {:?}, {:?}, {:?}", c[0], c[1], c[2]);
 }

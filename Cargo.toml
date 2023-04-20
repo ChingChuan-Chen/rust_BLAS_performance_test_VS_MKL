@@ -1,15 +1,16 @@
 [package]
-name = "test_simdeez"
+name = "mkl-rayon-simd-test"
 version = "0.1.0"
 authors = ["Ching-Chuan Chen <zw12356@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-time = "*"
 rand = "*"
 rand_distr = "*"
 arrayref = "*"
-rayon = "*"
-cblas = "*"
-packed_simd = { version = "0.3.8", package = "packed_simd" }
-intel-mkl-src = {version = "*", default-features = false, features = ["mkl-static-lp64-iomp"]}
+num_cpus = "*"
+rayon = "1.7.0"
+cblas = "0.4.0"
+packed_simd = { version = "0.3.8", default-features = false, package = "packed_simd" }
+intel-mkl-src = {version = "0.8.1", default-features = false, features = ["mkl-static-lp64-iomp"]}
+intel-mkl-sys = {version = "0.8.1", default-features = false, features = ["mkl-static-lp64-iomp"]}
