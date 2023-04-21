@@ -417,3 +417,51 @@ fn main() {
     timer.toc("The time of rayon: ");
     println!("Result: {:?}, {:?}, {:?}", c[0], c[1], c[2]);
 }
+
+
+#[test]
+fn test_dot_product_raw_simd() {
+    let normal = Normal::new(0f64, 3f64).unwrap();
+
+    for len in 3..=24 {
+        let mut x: Vec<f64> = vec![0f64; len];
+        let mut y: Vec<f64> = vec![0f64; len];
+        fill_vec_with_random_dist(&mut x, &normal);
+        fill_vec_with_random_dist(&mut y, &normal);
+
+        let reference_result = x
+            .iter()
+            .zip(y.iter())
+            .fold(0.0, |a, zipped| a + zipped.0 * zipped.1);
+
+        let raw_simd_result = dot_product_raw_simd(&x, &y);
+        let relative_error = (raw_simd_result - reference_result).abs() / reference_result.abs();
+        assert!(
+            relative_error < f64::EPSILON * 10.0,
+            "Relative error too large for vectors of size {}: simd_result = {}, reference_result = {}",
+            len,
+            raw_simd_result,
+            reference_result
+        );
+
+        let packed_simd_result = dot_product_packed_simd(&x, &y);
+        let relative_error2 = (packed_simd_result - reference_result).abs() / reference_result.abs();
+        assert!(
+            relative_error2 < f64::EPSILON * 10.0,
+            "Relative error too large for vectors of size {}: simd_result = {}, reference_result = {}",
+            len,
+            raw_simd_result,
+            reference_result
+        );
+
+        let simd_result = dot_product_simd(&x, &y);
+        let relative_error2 = (simd_result - reference_result).abs() / reference_result.abs();
+        assert!(
+            relative_error2 < f64::EPSILON * 10.0,
+            "Relative error too large for vectors of size {}: simd_result = {}, reference_result = {}",
+            len,
+            simd_result,
+            reference_result
+        );
+    }
+}
