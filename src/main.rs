@@ -1,3 +1,8 @@
+#![feature(array_chunks)]
+#![feature(slice_as_chunks)]
+#![feature(portable_simd)]
+use std::simd::f64x4;
+use std::simd::SimdFloat;
 use std::time::Instant;
 #[macro_use]
 extern crate arrayref;
@@ -14,7 +19,7 @@ extern crate intel_mkl_sys;
 extern crate num_cpus;
 use cblas::{ddot, dgemv, Layout, Transpose};
 use intel_mkl_sys::vdAdd;
-use packed_simd::*;
+extern crate packed_simd;
 
 #[inline]
 fn fill_vec_with_random_dist<'a, T: Float + Send + Sync, D: Distribution<T> + Sync>(
@@ -47,17 +52,17 @@ impl Timer {
     }
 }
 
-fn dot_product(x: &[f64], y: &[f64]) -> f64 {
+fn dot_product_packed_simd(x: &[f64], y: &[f64]) -> f64 {
     let len = x.len();
     assert_eq!(len, y.len());
 
-    let mut sum = f64x4::splat(0.0);
-    let chunk_size = f64x4::lanes();
+    let mut sum: packed_simd::Simd<[f64; 4]> = packed_simd::f64x4::splat(0.0);
+    let chunk_size = packed_simd::f64x4::lanes();
     let num_chunks = len / chunk_size;
 
     for i in 0..num_chunks {
-        let xi = f64x4::from_slice_unaligned(&x[i * chunk_size..]);
-        let yi = f64x4::from_slice_unaligned(&y[i * chunk_size..]);
+        let xi = packed_simd::f64x4::from_slice_unaligned(&x[i * chunk_size..]);
+        let yi = packed_simd::f64x4::from_slice_unaligned(&y[i * chunk_size..]);
         sum += xi * yi;
     }
 
@@ -71,6 +76,44 @@ fn dot_product(x: &[f64], y: &[f64]) -> f64 {
     }
 
     res
+}
+
+fn dot_product_rayon_simd(x: &[f64], y: &[f64]) -> f64 {
+    let num_chunks = num_cpus::get();
+    let chunk_size = x.len() / num_chunks;
+
+    let dot_products: Vec<f64> = (0..num_chunks)
+        .into_par_iter()
+        .map(|i| {
+            let start = i * chunk_size;
+            let end = if i == num_chunks - 1 {
+                x.len()
+            } else {
+                start + chunk_size
+            };
+            dot_prod_simd(&x[start..end], &y[start..end])
+        })
+        .collect();
+
+    dot_products.par_iter().sum()
+}
+
+pub fn dot_prod_simd(a: &[f64], b: &[f64]) -> f64 {
+    let mut sum = a
+        .array_chunks::<4>()
+        .map(|&a| f64x4::from_array(a))
+        .zip(b.array_chunks::<4>().map(|&b| f64x4::from_array(b)))
+        .map(|(a, b)| a * b)
+        .fold(f64x4::splat(0.0), std::ops::Add::add)
+        .reduce_sum();
+
+    let remain = a.len() - (a.len() % 4);
+    sum += a[remain..]
+        .iter()
+        .zip(&b[remain..])
+        .map(|(a, b)| a * b)
+        .sum::<f64>();
+    sum
 }
 
 fn main() {
@@ -108,23 +151,44 @@ fn main() {
     println!("Result: {:?}", res);
 
     timer.tic();
+    let res: f64 = x
+        .iter()
+        .zip(y.iter())
+        .fold(0.0, |a, zipped| a + zipped.0 * zipped.1);
+    timer.toc("The time of pure rust: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
     let res: f64 = x.par_iter().zip(y.par_iter()).map(|(a, b)| a * b).sum();
     timer.toc("The time of rayon: ");
     println!("Result: {:?}", res);
 
     timer.tic();
-    let res: f64 = dot_product(&x, &y);
+    let res: f64 = dot_product_packed_simd(&x, &y);
     timer.toc("The time of packed_simd: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
+    let res: f64 = dot_prod_simd(&x, &y);
+    timer.toc("The time of std::simd: ");
     println!("Result: {:?}", res);
 
     timer.tic();
     let res: f64 = x
         .par_chunks(4)
-        .map(f64x4::from_slice_unaligned)
-        .zip(y.par_chunks(4).map(f64x4::from_slice_unaligned))
+        .map(packed_simd::f64x4::from_slice_unaligned)
+        .zip(
+            y.par_chunks(4)
+                .map(packed_simd::f64x4::from_slice_unaligned),
+        )
         .map(|(a, b)| (a * b).sum())
         .sum();
     timer.toc("The time of rayon + packed_simd ddot: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
+    let res: f64 = dot_product_rayon_simd(&x, &y);
+    timer.toc("The time of rayon + std::simd: ");
     println!("Result: {:?}", res);
 
     // test on vdAdd
@@ -145,8 +209,11 @@ fn main() {
     let mut r: Vec<f64> = vec![0f64; N];
     timer.tic();
     x.par_chunks(8)
-        .map(f64x8::from_slice_unaligned)
-        .zip(y.par_chunks(8).map(f64x8::from_slice_unaligned))
+        .map(packed_simd::f64x8::from_slice_unaligned)
+        .zip(
+            y.par_chunks(8)
+                .map(packed_simd::f64x8::from_slice_unaligned),
+        )
         .map(|(a, b)| a + b)
         .zip(r.par_chunks_mut(8))
         .for_each(|(v, slice)| {
