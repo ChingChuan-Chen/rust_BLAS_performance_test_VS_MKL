@@ -4,6 +4,7 @@
 use std::simd::f64x4;
 use std::simd::SimdFloat;
 use std::time::Instant;
+use std::arch::x86_64::{__m256d, _mm256_setzero_pd, _mm256_mul_pd, _mm256_hadd_pd, _mm256_extractf128_pd, _mm_cvtsd_f64, _mm256_loadu_pd, _mm256_add_pd};
 #[macro_use]
 extern crate arrayref;
 extern crate rand;
@@ -111,14 +112,14 @@ fn dot_product_rayon_simd(x: &[f64], y: &[f64]) -> f64 {
             } else {
                 start + chunk_size
             };
-            dot_prod_simd(&x[start..end], &y[start..end])
+            dot_product_simd(&x[start..end], &y[start..end])
         })
         .collect();
 
     dot_products.par_iter().sum()
 }
 
-pub fn dot_prod_simd(a: &[f64], b: &[f64]) -> f64 {
+pub fn dot_product_simd(a: &[f64], b: &[f64]) -> f64 {
     let mut sum = a
         .array_chunks::<4>()
         .map(|&a| f64x4::from_array(a))
@@ -134,6 +135,117 @@ pub fn dot_prod_simd(a: &[f64], b: &[f64]) -> f64 {
         .map(|(a, b)| a * b)
         .sum::<f64>();
     sum
+}
+
+fn dot_product_raw_simd(x: &[f64], y: &[f64]) -> f64 {
+    let len: usize = x.len();
+    let mut i: usize = 0;
+
+    let mut simd_sum = unsafe { _mm256_setzero_pd() };
+    unsafe {
+        while i + 7 < len {
+            let simd_x1: __m256d = _mm256_loadu_pd(&x[i]);
+            let simd_y1: __m256d = _mm256_loadu_pd(&y[i]);
+            let simd_x2: __m256d = _mm256_loadu_pd(&x[i + 4]);
+            let simd_y2: __m256d = _mm256_loadu_pd(&y[i + 4]);
+
+            simd_sum = _mm256_add_pd(simd_sum, _mm256_mul_pd(simd_x1, simd_y1));
+            simd_sum = _mm256_add_pd(simd_sum, _mm256_mul_pd(simd_x2, simd_y2));
+
+            i += 8;
+        }
+    }
+
+    let tmp = unsafe { _mm256_hadd_pd(simd_sum, simd_sum) };
+    let mut res: f64 = unsafe { _mm_cvtsd_f64(_mm256_extractf128_pd(tmp, 0)) + _mm_cvtsd_f64(_mm256_extractf128_pd(tmp, 1)) };
+
+    while i < len {
+        res += x[i] * y[i];
+        i += 1;
+    }
+
+    res
+}
+
+fn dot_product_raw_simd_2(x: &[f64], y: &[f64]) -> f64 {
+    let len = x.len();
+    let mut i = 0;
+
+    let mut simd_sum1 = unsafe { _mm256_setzero_pd() };
+    let mut simd_sum2 = unsafe { _mm256_setzero_pd() };
+    let mut simd_sum3 = unsafe { _mm256_setzero_pd() };
+    let mut simd_sum4 = unsafe { _mm256_setzero_pd() };
+
+    unsafe {
+        while i + 15 < len {
+            let simd_x1: __m256d = _mm256_loadu_pd(&x[i]);
+            let simd_y1: __m256d = _mm256_loadu_pd(&y[i]);
+            let simd_x2: __m256d = _mm256_loadu_pd(&x[i + 4]);
+            let simd_y2: __m256d = _mm256_loadu_pd(&y[i + 4]);
+            let simd_x3: __m256d = _mm256_loadu_pd(&x[i + 8]);
+            let simd_y3: __m256d = _mm256_loadu_pd(&y[i + 8]);
+            let simd_x4: __m256d = _mm256_loadu_pd(&x[i + 12]);
+            let simd_y4: __m256d = _mm256_loadu_pd(&y[i + 12]);
+
+            simd_sum1 = _mm256_add_pd(simd_sum1, _mm256_mul_pd(simd_x1, simd_y1));
+            simd_sum2 = _mm256_add_pd(simd_sum2, _mm256_mul_pd(simd_x2, simd_y2));
+            simd_sum3 = _mm256_add_pd(simd_sum3, _mm256_mul_pd(simd_x3, simd_y3));
+            simd_sum4 = _mm256_add_pd(simd_sum4, _mm256_mul_pd(simd_x4, simd_y4));
+
+            i += 16;
+        }
+    }
+
+    let simd_sum = unsafe { _mm256_add_pd(_mm256_add_pd(simd_sum1, simd_sum2), _mm256_add_pd(simd_sum3, simd_sum4))};
+    let tmp = unsafe { _mm256_hadd_pd(simd_sum, simd_sum)};
+    let mut res = unsafe { _mm_cvtsd_f64(_mm256_extractf128_pd(tmp, 0)) + _mm_cvtsd_f64(_mm256_extractf128_pd(tmp, 1))};
+
+    while i < len {
+        res += x[i] * y[i];
+        i += 1;
+    }
+
+    res
+}
+
+fn dot_product_rayon_raw_simd(x: &[f64], y: &[f64]) -> f64 {
+    let num_chunks = rayon::current_num_threads();
+    let chunk_size = x.len() / num_chunks;
+
+    let dot_products: Vec<f64> = (0..num_chunks)
+        .into_par_iter()
+        .map(|i| {
+            let start = i * chunk_size;
+            let end = if i == num_chunks - 1 {
+                x.len()
+            } else {
+                start + chunk_size
+            };
+            dot_product_raw_simd(&x[start..end], &y[start..end])
+        })
+        .collect();
+
+    dot_products.par_iter().sum()
+}
+
+fn dot_product_rayon_raw_simd_2(x: &[f64], y: &[f64]) -> f64 {
+    let num_chunks = rayon::current_num_threads();
+    let chunk_size = x.len() / num_chunks;
+
+    let dot_products: Vec<f64> = (0..num_chunks)
+        .into_par_iter()
+        .map(|i| {
+            let start = i * chunk_size;
+            let end = if i == num_chunks - 1 {
+                x.len()
+            } else {
+                start + chunk_size
+            };
+            dot_product_raw_simd_2(&x[start..end], &y[start..end])
+        })
+        .collect();
+
+    dot_products.par_iter().sum()
 }
 
 fn main() {
@@ -189,8 +301,18 @@ fn main() {
     println!("Result: {:?}", res);
 
     timer.tic();
-    let res: f64 = dot_prod_simd(&x, &y);
+    let res: f64 = dot_product_simd(&x, &y);
     timer.toc("The time of std::simd: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
+    let res: f64 = dot_product_raw_simd(&x, &y);
+    timer.toc("The time of std::arch::*: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
+    let res: f64 = dot_product_raw_simd_2(&x, &y);
+    timer.toc("The time of std::arch::* with more accumulators: ");
     println!("Result: {:?}", res);
 
     timer.tic();
@@ -201,6 +323,16 @@ fn main() {
     timer.tic();
     let res: f64 = dot_product_rayon_simd(&x, &y);
     timer.toc("The time of rayon + std::simd: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
+    let res: f64 = dot_product_rayon_raw_simd(&x, &y);
+    timer.toc("The time of rayon + std::arch::*: ");
+    println!("Result: {:?}", res);
+
+    timer.tic();
+    let res: f64 = dot_product_rayon_raw_simd_2(&x, &y);
+    timer.toc("The time of rayon + std::arch::* with more accumulators: ");
     println!("Result: {:?}", res);
 
     // test on vdAdd
