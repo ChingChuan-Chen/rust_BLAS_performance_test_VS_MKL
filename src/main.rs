@@ -78,8 +78,28 @@ fn dot_product_packed_simd(x: &[f64], y: &[f64]) -> f64 {
     res
 }
 
+fn dot_product_rayon_packed_simd(x: &[f64], y: &[f64]) -> f64 {
+    let num_chunks: usize = rayon::current_num_threads();
+    let chunk_size = x.len() / num_chunks;
+
+    let dot_products: Vec<f64> = (0..num_chunks)
+        .into_par_iter()
+        .map(|i| {
+            let start = i * chunk_size;
+            let end = if i == num_chunks - 1 {
+                x.len()
+            } else {
+                start + chunk_size
+            };
+            dot_product_packed_simd(&x[start..end], &y[start..end])
+        })
+        .collect();
+
+    dot_products.par_iter().sum()
+}
+
 fn dot_product_rayon_simd(x: &[f64], y: &[f64]) -> f64 {
-    let num_chunks = num_cpus::get();
+    let num_chunks = rayon::current_num_threads();
     let chunk_size = x.len() / num_chunks;
 
     let dot_products: Vec<f64> = (0..num_chunks)
@@ -174,15 +194,7 @@ fn main() {
     println!("Result: {:?}", res);
 
     timer.tic();
-    let res: f64 = x
-        .par_chunks(4)
-        .map(packed_simd::f64x4::from_slice_unaligned)
-        .zip(
-            y.par_chunks(4)
-                .map(packed_simd::f64x4::from_slice_unaligned),
-        )
-        .map(|(a, b)| (a * b).sum())
-        .sum();
+    let res: f64 = dot_product_rayon_packed_simd(&x, &y);
     timer.toc("The time of rayon + packed_simd ddot: ");
     println!("Result: {:?}", res);
 
@@ -208,14 +220,14 @@ fn main() {
 
     let mut r: Vec<f64> = vec![0f64; N];
     timer.tic();
-    x.par_chunks(8)
-        .map(packed_simd::f64x8::from_slice_unaligned)
+    x.par_chunks(4)
+        .map(packed_simd::f64x4::from_slice_unaligned)
         .zip(
-            y.par_chunks(8)
-                .map(packed_simd::f64x8::from_slice_unaligned),
+            y.par_chunks(4)
+                .map(packed_simd::f64x4::from_slice_unaligned),
         )
         .map(|(a, b)| a + b)
-        .zip(r.par_chunks_mut(8))
+        .zip(r.par_chunks_mut(4))
         .for_each(|(v, slice)| {
             v.write_to_slice_unaligned(slice);
         });
